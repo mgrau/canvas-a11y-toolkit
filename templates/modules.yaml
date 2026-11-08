@@ -1,0 +1,23 @@
+# The course's modules, in order, for scripts/modules.py. Re-running adds
+# only what is missing; it never reorders, renames, publishes or deletes
+# (except items listed under `retire`). Push pages before listing them.
+modules:
+  - name: "Start Here"
+    folder: site                       # course files/site, for uploads
+    items:
+      - page: "Welcome"
+      - discussion: "Introduce Yourself"
+
+  - name: "Lab 1: Pendulum"
+    folder: guides/pendulum
+    items:
+      - page: "Pendulum Lab"
+        html: guides/pendulum/pendulum.html   # brings along any parts
+      - header: "Manuals and references"
+      - manual: manuals/stopwatch-manual/stopwatch-manual.qmd
+      - link: "Nelson and Olsson (1986), The pendulum: rich physics from a simple system"
+        url: https://doi.org/10.1119/1.14703
+      - file: handouts/pendulum-data.xlsx
+    # Items the new pages replace (exact module item titles).
+    retire:
+      - "Pendulum Instructions"

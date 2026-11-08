@@ -1,0 +1,62 @@
+---
+title: "@COURSE@"
+author: "@INSTRUCTOR@"
+affiliation: "@SCHOOL@"
+semester: "@SEMESTER@"
+subtitle: "@GUIDE TITLE@"
+format:
+  pdf:
+    colorlinks: true
+    template: ../../_assets/handout.tex
+    number-sections: false
+  html:
+    toc: true
+    toc-depth: 2
+    html-math-method: mathjax
+    number-sections: false
+---
+
+<!-- Instructor notes on this transcription are in NOTES.md beside this file. -->
+
+# Overview
+
+What the student will do and why, in two or three short paragraphs.
+**End with the goal in bold.**
+
+# Safety
+
+One or two sentences, then the limits as a table, near the top.
+
+| Setting | Limit |
+|---------|-------|
+| @SETTING@ | @LIMIT@ |
+
+# The apparatus
+
+What is on the bench.
+
+# How it works
+
+The physics, with math as $...$ and $$...$$.
+
+# Setup
+
+Wiring or setup as a table, never a photo of the wiring.
+
+| From | To |
+|------|----|
+| @TERMINAL@ | @TERMINAL@ |
+
+# Procedure
+
+1. Numbered steps, one action each.
+
+# Analysis questions
+
+1. Questions.
+
+# Sources
+
+These instructions are adapted from "@ORIGINAL TITLE@" (@AUTHOR@,
+@INSTITUTION@, @YEAR@). The equipment manuals are on Canvas in this lab's
+module.

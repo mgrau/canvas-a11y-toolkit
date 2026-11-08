@@ -1,0 +1,104 @@
+\DocumentMetadata{testphase=phase-III}
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{physics}
+\usepackage{fancyhdr}
+\usepackage{changepage}
+\usepackage{parskip}
+\usepackage{longtable, booktabs, array}
+% --- Table support that Pandoc's own template provides and a custom one must
+% --- supply for itself.
+% Pandoc sizes wide table columns as `p{... * \real{0.08}}`, which needs calc.
+\usepackage{calc}
+% Quarto prefixes every uncaptioned table with \def\LTcaptype{none}. The
+% caption package then looks for a counter by that name, so give it one; it
+% stays unused, which is the point (the table gets no number and no caption).
+\usepackage{caption}
+\newcounter{none}
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+\usepackage[dvipsnames]{xcolor}
+\usepackage[colorlinks,urlcolor=MidnightBlue]{hyperref}
+
+% hyperref is already loaded above, with options; loading it again would be a
+% no-op that silently discards them, so only configure it here.
+%
+% These read the Pandoc variables directly rather than \thetitle/\theauthor.
+% Those two come from the `titling` package, which is not loaded here, so they
+% expanded to nothing without raising an error and every PDF this template
+% produced went out with no Title and no Author in its metadata. PDF/UA wants
+% a document title, and it is what a screen reader announces when the file
+% opens.
+%
+% pdflang sets the PDF catalog's /Lang, which decides how that text is
+% pronounced.
+% pdfdisplaydoctitle makes a reader show and announce the document's title
+% rather than its filename. PDF/UA requires it, and without it a screen reader
+% opens this file as "syllabus.pdf".
+\hypersetup{
+    pdftitle={$title$$if(subtitle)$ — $subtitle$$endif$},
+    pdfauthor={$author$},
+    pdfdisplaydoctitle=true,
+$if(lang)$
+    pdflang={$lang$},
+$endif$
+}
+
+% Images. Pandoc wraps every figure in \pandocbounded, which its stock template
+% defines and a custom one must; tools/tikz.lua emits it too. Without this any
+% handout with a figure fails with "Undefined control sequence". Definition
+% copied from Pandoc's default LaTeX template.
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{%
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi}
+\makeatother
+
+% Pandoc emits \tightlist for lists with no blank lines between items. Its
+% stock template defines this; a custom template has to do it itself.
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% `article` numbers sections by default, so honouring number-sections: false
+% means switching the numbering off explicitly.
+$if(numbersections)$
+\setcounter{secnumdepth}{$if(secnumdepth)$$secnumdepth$$else$5$endif$}
+$else$
+\setcounter{secnumdepth}{-\maxdimen}
+$endif$
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{$semester$\\$author$}
+\lhead{$title$ - $subtitle$\\$affiliation$}
+\rfoot{Page \thepage}
+
+% The header is two lines, and the default \headheight of 12pt is not enough
+% for it. fancyhdr would otherwise warn and let the header drift into the text
+% block. Taking the extra height off \topmargin keeps the body where it was.
+\setlength{\headheight}{28pt}
+\addtolength{\topmargin}{-16pt}
+
+\begin{document}
+
+% No \maketitle. Page 1 carries the same running header as every other page
+% rather than a title block, so the document opens on its content.
+%
+% This is not just a matter of deleting \maketitle: that command issues
+% \thispagestyle{plain} for the page it appears on, which is what suppressed
+% the fancy header on page 1 and left it with a bare centred page number.
+% Removing it is what lets \pagestyle{fancy} apply from page 1.
+%
+% The subtitle used to be set here in \Large under the title block. It is in
+% the running header already, so it would now just be a stray centred line.
+$body$
+\end{document}

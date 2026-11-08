@@ -1,0 +1,14 @@
+# A fake workspace for the tests. Nothing here talks to Canvas.
+[course]
+name = "Test course"
+canvas_url = "https://canvas.example.edu"
+course_id = 111
+source_course_ids = [222]
+
+[panorama]
+alt_limit = 120
+word_limit = 2900
+
+[checks]
+own_hosts = ["canvas.example.edu"]
+scanner_blocked = ["knowledge.ni.com"]

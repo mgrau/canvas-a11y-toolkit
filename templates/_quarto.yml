@@ -1,0 +1,19 @@
+# Quarto project rooted at the course workspace, so generated figures
+# resolve: tools/tikz.lua writes SVGs to <project>/figures and links them as
+# "/figures/name.svg". `type: default` renders each document beside its
+# source, which is where canvas.py push page expects the HTML.
+project:
+  type: default
+  render:
+    - "**/*.qmd"
+    - "!source/**"
+
+# Without a language, screen readers guess, and PDFs fail PDF/UA.
+lang: en
+
+# tools/ is a link to the toolkit's quarto/ folder (made by new_course.py).
+filters:
+  - tools/tikz.lua
+  - tools/library-proxy.lua
+
+library-proxy: "@PROXY@"

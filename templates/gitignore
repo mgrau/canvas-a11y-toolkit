@@ -1,0 +1,43 @@
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Someone else's material: the exported source course, and converted
+# vendor manuals (copies of copyrighted text, Canvas only) ----
+source/
+manuals/
+
+# ---- Private working files: Panorama dumps name the instructor and carry
+# session tokens; upload scratch ----
+_notes/
+
+# ---- Student data: the toolkit never reads it, but keep it out anyway ----
+class_list/
+grades/
+submissions/
+students/
+*Grades-*.csv
+
+# ---- Quarto output (rebuilt on demand) ----
+/.quarto/
+*_files/
+*.html
+!canvas/*.html
+figures/
+*.pdf
+*.tex
+!_assets/*.tex
+**/*.quarto_ipynb
+
+# ---- Canvas sync: merge bases of manual pages are copyrighted text ----
+canvas/.sync-base/pre-pull/
+canvas/.sync-base/page--*
+
+# ---- LaTeX / OS / Python ----
+*.aux
+*.log
+*.out
+*.toc
+.DS_Store
+__pycache__/

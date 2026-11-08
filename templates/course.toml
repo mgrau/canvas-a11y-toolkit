@@ -1,0 +1,33 @@
+# Course settings for canvas-a11y-toolkit. Committed to git, so no secrets:
+# the Canvas token goes in .env (CANVAS_TOKEN=...), which is gitignored.
+
+[course]
+name = "PHYS 101 Spring 2027"            # for messages only
+canvas_url = "https://canvas.example.edu"
+# The ONLY course the tools write to: the number in the course's URL,
+# canvas.example.edu/courses/<this>.
+course_id = 0
+# Old courses to copy material from. Read only: the tools refuse to write
+# to them. export_course.py reads the first one unless given another.
+source_course_ids = []
+timezone = "America/New_York"
+
+[panorama]
+# YuJa Panorama's external tool id in this Canvas (`canvas.py list tools`).
+# Leave out if the school does not use Panorama; yuja.sh then will not run.
+# tool_id = 3045
+alt_limit = 120        # longest alt text allowed (Panorama's help text says 120)
+word_limit = 2900      # Panorama flags pages over 3,000 of its words
+
+[library]
+# EZproxy prefix for DOI links, so students reach paywalled articles with
+# their campus login. "" turns it off. Ask the library for the prefix.
+proxy_prefix = ""
+# proxy_prefix = "https://login.proxy.lib.example.edu/login?url="
+
+[checks]
+# Links on these hosts are not tested (they need a login).
+own_hosts = ["canvas.example.edu"]
+# Sites that answer Panorama's link checker with 404 although the page is
+# live. Links to them always fail a scan, so the checklist flags them.
+scanner_blocked = ["knowledge.ni.com"]

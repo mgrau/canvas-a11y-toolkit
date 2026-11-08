@@ -1,0 +1,88 @@
+---
+title: "Example Course"
+subtitle: "Measuring g with a Simple Pendulum"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    html-math-method: mathjax
+    number-sections: false
+---
+
+<!-- Instructor notes on this transcription are in NOTES.md beside this file. -->
+
+# Overview
+
+A pendulum's period depends on its length and on the local acceleration due
+to gravity, $g$, and hardly at all on its mass. Timing a pendulum is one of
+the oldest ways to measure $g$.
+
+**Your goal is to measure the period of a pendulum at five lengths and use
+the results to find $g$ with an uncertainty.**
+
+# Safety
+
+The bob is heavy. Keep your face out of its path, and stop it by hand only
+at the end of a swing.
+
+| Setting | Limit |
+|---------|-------|
+| Release angle | 10° from vertical at most |
+| Bob mass | 1 kg at most on the standard clamp |
+
+# The apparatus
+
+A steel bob on a light string, a clamp and stand, a metre stick, and a
+photogate timer.
+
+# How it works
+
+For small swings the period is
+
+$$T = 2\pi\sqrt{\frac{L}{g}},$$
+
+where $L$ is the length from the pivot to the centre of the bob. Squaring
+both sides gives $T^2 = (4\pi^2/g)\,L$, so a graph of $T^2$ against $L$ is a
+straight line through the origin with slope $4\pi^2/g$.
+
+```{.tikz alt="A pendulum: a bob hanging from a pivot on a string of length L, swung out by a small angle theta." desc="A pivot at the top with a string hanging from it. The string is drawn twice: once straight down (dashed), and once swung to the right by a small angle labelled theta. A filled circle, the bob, hangs at the end of the swung string. The length of the string, from the pivot to the centre of the bob, is labelled L." width="35%"}
+\begin{tikzpicture}
+\draw[thick] (-1,0) -- (1,0);
+\draw[dashed] (0,0) -- (0,-3);
+\draw (0,0) -- ({3*sin(15)},{-3*cos(15)}) node[midway, right] {$L$};
+\fill ({3*sin(15)},{-3*cos(15)}) circle (0.18);
+\draw (0,-0.9) arc (-90:-75:0.9) node[midway, below] {$\theta$};
+\end{tikzpicture}
+```
+
+# Setup
+
+| From | To |
+|------|----|
+| Photogate signal lead | Timer input A |
+| Timer power lead | Bench outlet |
+
+# Procedure
+
+1. Set the length $L$ to about 1.0 m and measure it from the pivot to the
+   centre of the bob.
+2. Pull the bob aside by no more than 10° and release it without a push.
+3. Record the time for 10 full swings. Repeat three times.
+4. Repeat steps 1 to 3 for four shorter lengths, down to about 0.3 m.
+
+| Length $L$ (m) | Time for 10 swings (s) | Period $T$ (s) |
+|----------------|------------------------|----------------|
+| (your value)   | (your value)           | (your value)   |
+
+# Analysis questions
+
+1. Plot $T^2$ against $L$ and fit a straight line. What is $g$, with its
+   uncertainty?
+2. Does your line pass through the origin? What would an offset mean?
+
+# Sources
+
+These instructions are an original example written for the toolkit. The
+small-angle period is derived in any introductory mechanics text, for
+example [Nelson and Olsson, "The pendulum: rich physics from a simple
+system"](https://doi.org/10.1119/1.14703).
