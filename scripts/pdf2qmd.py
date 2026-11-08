@@ -336,7 +336,9 @@ def check(paths: list[Path], diff: bool = False, render: bool = False,
                             "(students can read it in View Source)")
         if "~~" in body:
             problems.append("strikeout debris (~~)")
-        if re.search(r"(?<![(<\[\"])https?://\S+", body):
+        # A dead address kept as plain text, "(formerly http://..., no longer
+        # online)", is the fix for a broken link, and Panorama passes it.
+        if re.search(r"(?<![(<\[\"])(?<!formerly )https?://\S+", body):
             problems.append("bare URL; give it descriptive link text")
         levels = [len(m) for m in re.findall(r"^(#+) ", body, flags=re.M)]
         for a, b in zip(levels, levels[1:]):

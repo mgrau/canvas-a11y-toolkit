@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(~/.claude/**)",
+      "Read(//Users/mgrau/Library/CloudStorage/OneDrive-OldDominionUniversity/teaching/phys413/spring2026/_spring2027_converted_manuals/**)",
+      "Read(//Users/mgrau/Library/CloudStorage/OneDrive-OldDominionUniversity/teaching/phys413/spring2027-reference/**)",
+      "Grep(//Users/mgrau/Library/CloudStorage/OneDrive-OldDominionUniversity/teaching/phys413/spring2027-reference/**)",
+      "Glob(//Users/mgrau/Library/CloudStorage/OneDrive-OldDominionUniversity/teaching/phys413/spring2027-reference/**)",
+      "Bash(gh:*)",
+      "Bash(git clone:*)"
+    ]
+  }
+}
