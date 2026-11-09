@@ -30,6 +30,20 @@ into a folder that mirrors the source's folder (`guides/hall_effect/` ->
 A finished manual: `$T/pdf2qmd.py --push manuals/<slug>/<slug>.qmd` runs the
 gate, renders and pushes it with the right title.
 
+## Many pages: queue them
+
+When a push worker is running (`$T/push_queue.py run`, started by the
+instructor), don't push guides and manuals yourself. Queue each one as it
+passes its gate and go on to the next document:
+
+    $T/push_queue.py add manuals/<slug>/<slug>.qmd
+    $T/push_queue.py add guides/<id>/<id>.qmd --title "<Title>"
+    $T/push_queue.py status
+
+The worker re-runs the gate, then pushes. `failed` in `status` means the
+gate or the push stopped it: read `_notes/push-queue/<key>.log`, fix the
+source, and `add` it again. Build the modules once the pages show `pushed`.
+
 Hand-written site pages (welcome, instructor, policies) are HTML in
 `canvas/`, with inline styles only (`docs/canvas-html.md`):
 `$T/canvas.py --yes push page canvas/welcome.html --title "Welcome"`.
