@@ -29,7 +29,9 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import json
 import mimetypes
+import os
 import re
 import sys
 from pathlib import Path
@@ -119,13 +121,17 @@ def rehost_images(
     from bs4 import BeautifulSoup  # noqa: F401
 
     uploaded: dict[str, str] = {}
+    reused = 0
 
     def upload(path: Path) -> str:
+        nonlocal reused
         key = str(path.resolve())
         if key not in uploaded:
-            print(f"  uploading {path.name}")
-            info = canvas.upload_file(path, folder=folder, folder_id=folder_id,
-                                      locked=locked)
+            info, fresh = upload_once(canvas, path, folder_id)
+            if fresh:
+                print(f"  uploading {path.name}")
+            else:
+                reused += 1
             uploaded[key] = f"/courses/{canvas.course_id}/files/{info['id']}/preview"
         return uploaded[key]
 
@@ -184,6 +190,8 @@ def rehost_images(
         if img.get("alt") is None:
             print(f"  WARNING: {local.name} has no alt text")
 
+    if reused:
+        print(f"  {reused} image(s) unchanged since the last push, not re-uploaded")
     return main
 
 
@@ -326,10 +334,7 @@ def draft_folder(canvas: Canvas, folder_path: str) -> int:
     if len(parts) == 1:
         raise CanvasError("upload into a subfolder, not the root of course files")
 
-    existing = {
-        f["full_name"]: f
-        for f in canvas.paginate(f"courses/{canvas.course_id}/folders")
-    }
+    existing = {f["full_name"]: f for f in canvas.folders()}
     for depth in range(2, len(parts) + 1):
         full = "/".join(parts[:depth])
         if full in existing:
@@ -345,6 +350,7 @@ def draft_folder(canvas: Canvas, folder_path: str) -> int:
                 "locked": "true",
             },
         )
+        canvas.remember_folder(existing[full])
     leaf = existing["/".join(parts)]
     if not leaf.get("locked"):
         print(f"  note: {leaf['full_name']} is unlocked (released); "
@@ -352,10 +358,56 @@ def draft_folder(canvas: Canvas, folder_path: str) -> int:
     return leaf["id"]
 
 
+UPLOADS = st.STATE.parent / ".uploads.json"
+
+
+def upload_once(canvas: Canvas, path: Path, folder_id: int) -> tuple[dict, bool]:
+    """Upload a file, locked, unless Canvas already has these exact bytes.
+
+    Returns (file, uploaded). Every push used to upload every image on the
+    page again, three requests and the bytes each, even when nothing had
+    changed: about 600 requests per re-push of a manual with 190 figures,
+    and a manual is re-pushed after each round of fixes. canvas/.uploads.json
+    records the content hash and file id of each upload; an image whose
+    bytes match its record, and whose file is still in the folder, is
+    reused. Checking that costs one listing per folder, not one per image.
+
+    A reused file keeps its lock state: if the instructor has unlocked it,
+    uploading over it would lock it again under pages students can read.
+    """
+    record = _read_uploads()
+    key = f"{canvas.course_id}/{folder_id}/{path.name}"
+    digest = hashlib.sha1(path.read_bytes()).hexdigest()
+    seen = record.get(key)
+    if seen and seen["sha1"] == digest:
+        live = canvas.folder_files(folder_id).get(seen["id"])
+        if live is not None and live.get("size") == seen.get("size"):
+            return live, False
+    info = canvas.upload_file(path, folder_id=folder_id, locked=True)
+    canvas.remember_file(folder_id, info)
+    record[key] = {"sha1": digest, "id": info["id"], "size": info.get("size")}
+    _write_uploads(record)
+    return info, True
+
+
+def _read_uploads() -> dict:
+    try:
+        return json.loads(UPLOADS.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _write_uploads(record: dict) -> None:
+    UPLOADS.parent.mkdir(parents=True, exist_ok=True)
+    tmp = UPLOADS.with_name(f"{UPLOADS.name}.{os.getpid()}")
+    tmp.write_text(json.dumps(record, indent=1, sort_keys=True), encoding="utf-8")
+    tmp.replace(UPLOADS)
+
+
 def upload_draft(canvas: Canvas, path: Path, folder: str | None = None) -> dict:
     """Upload one file, locked, into its organised folder."""
     folder_id = draft_folder(canvas, folder or folder_for(path))
-    return canvas.upload_file(path, folder_id=folder_id, locked=True)
+    return upload_once(canvas, path, folder_id)[0]
 
 
 def require_locked_folder(canvas: Canvas, folder_id: int | None) -> None:
@@ -695,7 +747,7 @@ def cmd_push_file(canvas: Canvas, args) -> None:
         return
     if args.folder_id is not None:
         require_locked_folder(canvas, args.folder_id)
-        info = canvas.upload_file(path, folder_id=args.folder_id, locked=True)
+        info = upload_once(canvas, path, args.folder_id)[0]
     else:
         info = upload_draft(canvas, path, folder)
     print(f"-> {canvas.base_url}/courses/{canvas.course_id}/files/{info['id']}")

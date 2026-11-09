@@ -85,6 +85,8 @@ class Canvas:
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {token}"
         self._pages: list[dict] | None = None  # see pages()
+        self._folders: list[dict] | None = None  # see folders()
+        self._files: dict[int, dict[int, dict]] = {}  # see folder_files()
 
     @classmethod
     def from_env(cls, dry_run: bool = False) -> "Canvas":
@@ -261,6 +263,32 @@ class Canvas:
     def _forget_page(self, url_slug: str) -> None:
         if self._pages is not None:
             self._pages = [p for p in self._pages if p["url"] != url_slug]
+
+    def folders(self) -> list[dict]:
+        """Every folder in the course, listed once per client (as pages())."""
+        if self._folders is None:
+            self._folders = list(self.paginate(f"courses/{self.course_id}/folders"))
+        return list(self._folders)
+
+    def remember_folder(self, folder: dict) -> None:
+        if self._folders is not None:
+            self._folders.append(folder)
+
+    def folder_files(self, folder_id: int) -> dict[int, dict]:
+        """The files in one folder by id, listed once per client.
+
+        Lets a push check that the images it uploaded last time are still
+        there with one request per folder rather than one per image.
+        """
+        if folder_id not in self._files:
+            self._files[folder_id] = {
+                f["id"]: f for f in self.paginate(f"folders/{folder_id}/files")
+            }
+        return dict(self._files[folder_id])
+
+    def remember_file(self, folder_id: int, info: dict) -> None:
+        if folder_id in self._files:
+            self._files[folder_id][info["id"]] = info
 
     def modules(self) -> list[dict]:
         return list(self.paginate(f"courses/{self.course_id}/modules"))
