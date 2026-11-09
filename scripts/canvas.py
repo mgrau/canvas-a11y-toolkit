@@ -546,7 +546,9 @@ def cmd_push_page(canvas: Canvas, args) -> None:
 
     def page_url(t: str) -> str:
         if t not in urls:
-            found = canvas.find_page(t)
+            # Index only: the splitter asks about every candidate split's
+            # titles, and the relink pass below checks the real ones.
+            found = canvas.find_page(t, recheck=False)
             urls[t] = found["url"] if found else slugify(t)
         return f"/courses/{canvas.course_id}/pages/{urls[t]}"
 
@@ -570,7 +572,7 @@ def cmd_push_page(canvas: Canvas, args) -> None:
             for t, b in relinked:
                 _push_page_body(canvas, args, path, t, b, quiet=True)
     titles = {t for t, _ in parts}
-    stale = [p["title"] for p in canvas.paginate(f"courses/{canvas.course_id}/pages", per_page=100)
+    stale = [p["title"] for p in canvas.pages()
              if (p["title"].startswith(f"{title} (Part ")
                  or (p["title"] == title and len(parts) > 1)) and p["title"] not in titles]
     for t in stale:

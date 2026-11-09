@@ -84,6 +84,7 @@ class Canvas:
             raise Refused(f"course {self.course_id} is a source course: read only")
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {token}"
+        self._pages: list[dict] | None = None  # see pages()
 
     @classmethod
     def from_env(cls, dry_run: bool = False) -> "Canvas":
@@ -232,14 +233,65 @@ class Canvas:
         return list(self.paginate(f"courses/{self.course_id}/assignments"))
 
     def pages(self) -> list[dict]:
-        return list(self.paginate(f"courses/{self.course_id}/pages"))
+        """The page index (titles and addresses, no bodies).
+
+        Fetched once per client and then kept current by this client's own
+        creates, updates and deletes. Listing every page costs one request
+        per 100 pages, and a long manual pushed as 64 parts used to list the
+        whole course several times per part: about 25 minutes for one
+        manual in a 350-page course (Nov 8 2026). find_page() asks Canvas
+        again before reporting a page missing, so a page another process
+        created since is still found.
+        """
+        if self._pages is None:
+            self._pages = list(self.paginate(f"courses/{self.course_id}/pages"))
+        return list(self._pages)
+
+    def _remember_page(self, page: dict) -> None:
+        """Put a page's index entry into the cached index (replace or add)."""
+        if self._pages is None or not page.get("url"):
+            return
+        entry = {k: v for k, v in page.items() if k != "body"}
+        for i, p in enumerate(self._pages):
+            if p.get("page_id") == entry.get("page_id") or p["url"] == entry["url"]:
+                self._pages[i] = entry
+                return
+        self._pages.append(entry)
+
+    def _forget_page(self, url_slug: str) -> None:
+        if self._pages is not None:
+            self._pages = [p for p in self._pages if p["url"] != url_slug]
 
     def modules(self) -> list[dict]:
         return list(self.paginate(f"courses/{self.course_id}/modules"))
 
-    def find_page(self, title: str) -> dict | None:
+    def find_page(self, title: str, recheck: bool = True) -> dict | None:
+        """The index entry for a page, by title (or Canvas's address for it).
+
+        recheck=False trusts the loaded index alone: for guesses that are
+        verified later anyway, like predicting the links between parts while
+        the splitter tries out candidate splits (hundreds of titles that
+        never exist).
+        """
+        def match(p: dict) -> bool:
+            return p["title"] == title or p["url"] == slugify(title)
+
         for p in self.pages():
-            if p["title"] == title or p["url"] == slugify(title):
+            if match(p):
+                return p
+        if not recheck:
+            return None
+        # Not in the index this client loaded. Another process (a second
+        # push running alongside) may have created it since, and missing it
+        # here would create a duplicate, so ask Canvas: one request.
+        try:
+            fresh = list(self.paginate(f"courses/{self.course_id}/pages", search_term=title))
+        except CanvasError:  # Canvas refuses some search terms (too short)
+            self._pages = None
+            fresh = self.pages()
+        for p in fresh:
+            if match(p):
+                self._remember_page(p)
                 return p
         return None
 
@@ -277,11 +329,16 @@ class Canvas:
         # "...-2" duplicate every time (Nov 8 2026).
         existing = self.find_page(title)
         if existing:
-            return self.put(
+            page = self.put(
                 f"courses/{self.course_id}/pages/{existing['url']}", data=payload
             )
-        payload["wiki_page[published]"] = "false"
-        return self.post(f"courses/{self.course_id}/pages", data=payload)
+        else:
+            payload["wiki_page[published]"] = "false"
+            page = self.post(f"courses/{self.course_id}/pages", data=payload)
+        if existing and page.get("url") != existing["url"]:
+            self._forget_page(existing["url"])
+        self._remember_page(page)
+        return page
 
     # -- deleting ----------------------------------------------------------
     #
@@ -290,9 +347,11 @@ class Canvas:
     # "Undelete" page (/courses/:id/undelete) for a while. Do not rely on it.
 
     def delete_page(self, url_slug: str) -> dict:
-        return self.request(
+        result = self.request(
             "DELETE", f"courses/{self.course_id}/pages/{url_slug}"
         ).json()
+        self._forget_page(url_slug)
+        return result
 
     def delete_module(self, module_id: int | str) -> dict:
         return self.request(
