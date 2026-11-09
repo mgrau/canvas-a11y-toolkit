@@ -24,14 +24,21 @@ course=${launch%% *}
 url=${launch#* }
 mode=$1; shift
 if [[ $mode == (list|issues) ]]; then search=''; out=$1; else search=$1; out=$2; fi
+# Every page of results (200 a page): one page held only the lowest 200.
 docs_js="
-  const body = {identifierKey: new URLSearchParams(location.search).get('institution'), contextId: '$course', page: 1,
-    searchText: ${(qqq)search}, pageSize: 200, sortColumnName: 'score', sortOrder: 'asc', fileTypeFilter: [],
-    reportGeneratedFilter: [], startYear: 2020, startMonth: 1, endYear: 2040, endMonth: 12, minScore: null, maxScore: null};
-  const r = await fetch('/api/document/getPaginatedCourseDocuments', {method: 'POST', credentials: 'include',
-    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-  const found = await r.json();
-  const docs = found.documents || [];"
+  const docs = [];
+  let status = 0;
+  for (let page = 1, pages = 1; page <= pages; page++) {
+    const body = {identifierKey: new URLSearchParams(location.search).get('institution'), contextId: '$course', page,
+      searchText: ${(qqq)search}, pageSize: 200, sortColumnName: 'score', sortOrder: 'asc', fileTypeFilter: [],
+      reportGeneratedFilter: [], startYear: 2020, startMonth: 1, endYear: 2040, endMonth: 12, minScore: null, maxScore: null};
+    const r = await fetch('/api/document/getPaginatedCourseDocuments', {method: 'POST', credentials: 'include',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    status = r.status;
+    const found = await r.json();
+    docs.push(...(found.documents || []));
+    pages = found.numberOfPages || 1;
+  }"
 if [[ $mode == list ]]; then
   node $SP/yuja_launch.mjs "$url" $out 25 "(async () => { $docs_js return {found: docs.length}; })()" 5 || exit 1
   uv run --quiet --script $SP/yuja_table.py $out
@@ -79,7 +86,7 @@ fi
 action="(async () => {
 $open_js
 $docs_js
-  if (!docs.length) return {found: 0, status: r.status};
+  if (!docs.length) return {found: 0, status};
   return {found: docs.length, docs, view: await openReport(docs[0].displayName)};
 })()"
 node $SP/yuja_launch.mjs "$url" $out 25 "$action" 25

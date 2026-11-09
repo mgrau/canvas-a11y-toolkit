@@ -58,8 +58,9 @@ Observed at one school, Nov 2026. Expect the same shape elsewhere.
 - **Unpublished and locked content is scanned** too.
 - **Institution settings** come back in Panorama's `feature-flags`
   response (`altTextLimit`, `fontSizeMinimum`).
-- `yuja.sh list` asks for 200 items sorted by score, so it shows the lowest
-  200.
+- `yuja.sh list` reads every page of results (200 items a page, lowest
+  score first). Before Nov 9 2026 it read only the first page, so a course
+  with more than 200 items showed only its lowest 200.
 
 ## Issue types and fixes
 

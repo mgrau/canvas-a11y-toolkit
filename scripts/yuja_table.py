@@ -35,14 +35,14 @@ def launch() -> None:
 
 
 def table(outdir: str) -> None:
+    docs = []  # one response per page of results
     for f in sorted(glob.glob(f"{outdir}/json-*.json")):
         j = json.load(open(f))
-        if "getPaginatedCourseDocuments" not in j["url"]:
-            continue
-        docs = json.loads(j["body"]).get("documents", [])
-        for d in docs:
-            print(f"{d.get('score')!s:>6}  {d.get('format', ''):<6} {d.get('displayName')}")
-        print(len(docs), "items")
+        if "getPaginatedCourseDocuments" in j["url"]:
+            docs += json.loads(j["body"]).get("documents", [])
+    for d in docs:
+        print(f"{d.get('score')!s:>6}  {d.get('format', ''):<6} {d.get('displayName')}")
+    print(len(docs), "items")
 
 
 def issues(outdir: str) -> None:
