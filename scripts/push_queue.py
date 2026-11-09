@@ -158,6 +158,8 @@ def work(item: dict) -> None:
                 state="queued" if requeued else ("pushed" if code == 0 else "failed"),
                 queued_at=fresh.get("queued_at"))
     item["pushes"] = item.get("pushes", 0) + (code == 0)
+    if code == 0 and not item.get("first_pushed_at"):
+        item["first_pushed_at"] = item["finished_at"]
     save(item)
     log_event(key=item["key"], state="pushed" if code == 0 else "failed", last=last[:300])
     print(f"{now()} {'pushed' if code == 0 else 'FAILED'} {item['qmd']}: {last[:200]}", flush=True)

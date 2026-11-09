@@ -32,14 +32,15 @@ def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def pushed_pages(host: str, ws: str) -> dict[str, str]:
-    """Title -> when it was last pushed, for every page the run has pushed."""
+def pushed_pages(host: str, ws: str) -> dict[str, tuple[str, str]]:
+    """Title -> (first push, last push), for every page the run has pushed."""
     read = ("import glob, json\n"
             f"print(json.dumps([json.load(open(f)) for f in glob.glob('{ws}/_notes/push-queue/*.json')]))\n")
     r = subprocess.run(["ssh", "-o", "BatchMode=yes", host, "python3", "-"], input=read,
                        capture_output=True, text=True, timeout=60, check=True)
     items = json.loads(r.stdout)
-    return {i["title"]: i.get("finished_at") or "" for i in items if i.get("pushes")}
+    return {i["title"]: (i.get("first_pushed_at") or "", i.get("finished_at") or "")
+            for i in items if i.get("pushes")}
 
 
 def ours(name: str, titles: dict[str, str]) -> str | None:
@@ -73,7 +74,12 @@ def cycle(ws: Path, host: str, rws: str) -> str:
     base = ws / "_notes/yuja-watch"
     if not yuja("list", ws, base / "list"):
         return "yuja.sh list failed (kept the last summary)"
-    docs = [d for d in read_docs(base / "list") if ours(d.get("displayName", ""), titles)]
+    # Panorama keeps deleted pages until a Reprocess, so a page from an
+    # earlier run with the same title is still listed: count only scans made
+    # after this run first pushed the page.
+    docs = [d for d in read_docs(base / "list")
+            if (t := ours(d.get("displayName", ""), titles))
+            and d.get("inserted", "") >= titles[t][0]]
     issues: dict[str, list] = {}
     if any(d.get("score", 100) < 100 and d.get("format") != "pdf" for d in docs):
         if yuja("issues", ws, base / "issues"):
@@ -89,7 +95,7 @@ def cycle(ws: Path, host: str, rws: str) -> str:
                  f"{len(titles) - len(scanned)} pushed page(s) not scanned yet.")
     for d in under:
         name = d["displayName"]
-        stale = " (scanned before its last push)" if d.get("inserted", "") < titles[ours(name, titles)] else ""
+        stale = " (scanned before its last push)" if d.get("inserted", "") < titles[ours(name, titles)][1] else ""
         lines.append(f"\n{d['score']:>4}  {name}  scanned {d.get('inserted', '')[:16]}{stale}")
         by_type: dict[str, list] = {}
         for i in issues.get(name, []):
