@@ -121,7 +121,9 @@ def check_body(html: str, links: bool = False) -> list[Finding]:
                                f"link text is an address: {t[:60]}"))
 
     # MissingTableContentIssue: a table whose data cells are all empty (a
-    # blank data table for students to fill in). A few empty cells pass.
+    # blank data table for students to fill in), or that has a header row
+    # and no data rows at all (Nov 9 2026: 19 vendor-manual pages scored 29
+    # for a header-only "Observations" table). A few empty cells pass.
     for table in main.find_all("table"):
         if not table.find("th"):
             out.append(Finding("MissingTableHeadersIssue", "severe",
@@ -132,7 +134,7 @@ def check_body(html: str, links: bool = False) -> list[Finding]:
                                f"table without caption: {text_of(table)[:50]}"))
         cells = table.find_all("td")
         blank = [td for td in cells if not text_of(td) and not td.find("img")]
-        if cells and len(blank) == len(cells):
+        if len(blank) == len(cells):
             cap = table.find("caption")
             out.append(Finding("MissingTableContentIssue", "severe",
                                f"every data cell is empty in table "

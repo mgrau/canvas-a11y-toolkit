@@ -64,9 +64,12 @@ this step.
 
     quarto render guides/<id>/<id>.qmd
     $T/pdf2qmd.py --render --check guides/<id>/<id>.qmd
-    $T/a11y_check.py guides/<id>/<id>.html
+    $T/a11y_check.py --links guides/<id>/<id>.html
 
-Fix each reported problem and re-run until the check prints `1/1 files
+`--links` requests every external link. A dead one (an old address printed
+in the sheet) is a severe Panorama issue: relink it if the page moved,
+otherwise keep the address as plain text, "(formerly http://..., no
+longer online)". Fix each reported problem and re-run until the check prints `1/1 files
 pass` and the checklist prints `0 page(s) fail`. If the PDF render fails
 (LaTeX), fix it too: the guide also prints as a handout.
 

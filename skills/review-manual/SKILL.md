@@ -70,14 +70,19 @@ When done, delete the `<!-- DRAFT ... -->` line.
 ## 4. The gate
 
     $T/pdf2qmd.py --diff --render --check manuals/<slug>/<slug>.qmd
+    $T/a11y_check.py --links manuals/<slug>/<slug>.html
 
-It must print `1/1 files pass`. The `--diff` list shows PDF words the page
+The gate must print `1/1 files pass` and the checklist `0 page(s) fail`.
+Old manuals print many addresses that are dead now, and Panorama scores
+each dead link severe (a page with one scores 29). Relink a page that
+moved; otherwise keep the address as plain text, "(formerly http://...,
+no longer online)", which the gate accepts. The `--diff` list shows PDF words the page
 never uses: footer and address words you removed are fine; anything else
 means lost content, so find it and restore it.
 
 ## Done when
 
-The gate passes, and you have reported: figures kept (with alt text) and
+The gate and the checklist (with `--links`) pass, and you have reported: figures kept (with alt text) and
 deleted (count), anything unresolved, figures you could not check, and
 anything in the PDF that looks wrong or unsafe (for example a safety
 limit) for the instructor.

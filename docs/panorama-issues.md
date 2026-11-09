@@ -78,7 +78,7 @@ every page.
 | `DecorativeImageAsLinkIssue` (severe) | An image with empty alt inside a link. | Give it alt text that names the link's target. |
 | `BrokenHyperlinkIssue` (severe) | A link that does not resolve, mostly dead vendor URLs printed in old manuals. | Relink if the page moved; otherwise keep the printed address as plain text and say it is no longer online. Some sites (`scanner_blocked` in course.toml, e.g. knowledge.ni.com) give Panorama a 404 for a live page: name the page in plain text instead of linking it. |
 | `HyperlinkContextIssue` (severe) | Link text that is a bare URL or domain. | Descriptive link text ("Thorlabs EDU-MINT2 product page"). |
-| `MissingTableContentIssue` (severe) | A table whose data cells are all empty (a blank table for students). | `(your value)` or a dash in each blank cell. |
+| `MissingTableContentIssue` (severe) | A table whose data cells are all empty (a blank table for students), or a header row with no data rows at all. | `(your value)` or a dash in each blank cell; give a header-only table one such row. |
 | `MissingTableHeadersIssue` (severe) | A data table without header cells. | A header row in the Markdown table. (A table with no `<th>` at all is marked `role="presentation"` at push, as a layout table.) |
 | `SkippedHeadingIssue` | A heading level skipped (h2 then h4). | Fix the levels in the source; `pdf2qmd.py --check` catches it. |
 | PDF: untagged, scanned, no headings, tables without headers | Legacy PDFs | Replace each with an HTML page and retire the PDF. |

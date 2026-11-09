@@ -63,8 +63,8 @@ starting its step.**
 | ---- | ----- | ---------------- | --------- |
 | 1 | `setup-course` | workspace, token, `course.toml` | `canvas.py whoami` names the right course |
 | 2 | `export-and-triage` | `source/`, `triage.csv` with a decision per document | no row without a decision |
-| 3 | `transcribe-guide` | `guides/<id>/<id>.qmd` + `NOTES.md` per instruction sheet | `pdf2qmd.py --render --check` and `a11y_check.py` pass |
-| 4 | `review-manual` | `manuals/<slug>/<slug>.qmd` per vendor manual | `pdf2qmd.py --diff --render --check` passes |
+| 3 | `transcribe-guide` | `guides/<id>/<id>.qmd` + `NOTES.md` per instruction sheet | `pdf2qmd.py --render --check` and `a11y_check.py --links` pass |
+| 4 | `review-manual` | `manuals/<slug>/<slug>.qmd` per vendor manual | `pdf2qmd.py --diff --render --check` and `a11y_check.py --links` pass |
 | 5 | `push-to-canvas` | unpublished pages, `modules.yaml`, modules | `modules.py --dry-run` shows nothing to add |
 | 6 | `fix-yuja` | every item at 100 in Panorama | `yuja.sh list` shows no item under 100 |
 | 7 | `handoff` | `REVIEW.md`: what the instructor must check and publish | the instructor has it |
