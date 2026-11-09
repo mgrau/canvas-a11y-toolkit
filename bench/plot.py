@@ -22,6 +22,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.ticker  # noqa: E402
 
 # Reference palette (dataviz skill, light mode): fixed categorical order.
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
@@ -206,6 +207,45 @@ def accuracy(m: dict, out: Path) -> None:
         plt.close(fig)
 
 
+def panorama(m: dict, out: Path) -> None:
+    """Panorama's scores after a rescan, in bands: the run's own pages
+    against what the course already held (imported PDFs, template pages)."""
+    pa = m.get("panorama") or {}
+    if "run_pages" not in pa:
+        return
+    bands = [("100", GOOD), ("90-99", SERIES[3]), ("50-89", SERIES[1]), ("under 50", CRITICAL)]
+    groups = []
+    for name, key in [("the run's pages", "run_pages"),
+                      ("everything else\n(imported PDFs, templates)", "other")]:
+        g = pa[key]
+        groups.append((f"{name}\nmean {g['mean']:.1f}", [g["bands"][b] for b, _ in bands], g["items"]))
+    fig, ax = plt.subplots(figsize=(9, 2.8))
+    for i, (name, counts, n) in enumerate(groups):
+        left = 0
+        for (band, col), c in zip(bands, counts):
+            if c:
+                share = c / n
+                ax.barh(i, share, left=left, color=col, height=0.6, edgecolor=SURFACE, linewidth=2)
+                if share > 0.025:
+                    ax.text(left + share / 2, i, str(c), ha="center", va="center", fontsize=8,
+                            color="white" if col in (GOOD, CRITICAL) else INK)
+                left += share
+    ax.set_yticks(range(len(groups)), [g[0] for g in groups], fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1.0)
+    ax.margins(x=0)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.set_xlabel("share of items, by Panorama score (the numbers are item counts)")
+    from matplotlib.patches import Patch
+    ax.legend(handles=[Patch(color=c, label=b) for b, c in bands], ncol=4, frameon=False,
+              fontsize=8, loc="upper left", bbox_to_anchor=(0, -0.3))
+    ax.set_title(f"Panorama after a full rescan\n{label(m)}")
+    ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    fig.savefig(out / "panorama.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
 def compare(ms: list[dict], out: Path) -> None:
     """Small multiples: one panel per measure, one bar per run."""
     def get(m, path):
@@ -222,7 +262,7 @@ def compare(ms: list[dict], out: Path) -> None:
          + get(m, ["quality", "manuals", "gate_pass"])),
         ("Source words kept, manuals", lambda m: get(m, ["quality", "manuals", "mean_source_recall"])),
         ("Source words kept, guides", lambda m: get(m, ["quality", "guides", "mean_source_recall"])),
-        ("Panorama mean score", lambda m: get(m, ["panorama", "mean"])),
+        ("Panorama mean, the run's pages", lambda m: get(m, ["panorama", "run_pages", "mean"])),
     ]
     names = [label(m) for m in ms]
     fig, axes = plt.subplots(2, 4, figsize=(13, 6))
@@ -253,6 +293,7 @@ def main() -> int:
         progress(m, r)
         activity(m, r)
         accuracy(m, r)
+        panorama(m, r)
         print(f"wrote plots in {r}")
     return 0
 

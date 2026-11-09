@@ -418,7 +418,7 @@ def quality(ws: Path, ref: Path, ref_manuals: Path) -> dict:
 
 # -- canvas ---------------------------------------------------------------
 
-def canvas_state(ws: Path) -> dict:
+def canvas_state(ws: Path, since: str | None = None) -> dict:
     sys.path.insert(0, str(TOOLKIT / "scripts"))
     import os
     os.environ["CANVAS_WORKSPACE"] = str(ws)
@@ -440,20 +440,37 @@ def canvas_state(ws: Path) -> dict:
         "files": len(files),
         "pdf_files": sum(f.get("display_name", "").lower().endswith(".pdf") for f in files),
         "unlocked_files": sum(not f.get("locked") for f in files),
+        # Pages the run created or updated (for splitting Panorama's scores).
+        "run_page_titles": sorted(p["title"] for p in pages
+                                  if since and p.get("updated_at", "") >= since),
     }
 
 
-def panorama(dump: Path) -> dict:
+def panorama(dump: Path, run_titles: list[str] | None = None) -> dict:
+    """Scores over every item, and over the run's own pages apart from what
+    the course already held (imported PDFs, template pages)."""
     docs = []
     for f in sorted(dump.glob("json-*.json")):
         j = json.loads(f.read_text())
         if "getPaginatedCourseDocuments" in j["url"]:
             docs += json.loads(j["body"]).get("documents", [])
-    scores = [d["score"] for d in docs if d.get("score") is not None]
-    return {"items": len(scores), "mean": round(sum(scores) / max(1, len(scores)), 2),
-            "at_100": sum(s == 100 for s in scores),
-            "pdf": sum(d.get("format") == "pdf" for d in docs),
-            "under_100": sorted((d["score"], d["displayName"]) for d in docs if d["score"] < 100)[:40]}
+    def summary(ds):
+        sc = [d["score"] for d in ds if d.get("score") is not None]
+        return {"items": len(sc), "mean": round(sum(sc) / max(1, len(sc)), 2),
+                "at_100": sum(x == 100 for x in sc),
+                "bands": {"100": sum(x == 100 for x in sc),
+                          "90-99": sum(90 <= x < 100 for x in sc),
+                          "50-89": sum(50 <= x < 90 for x in sc),
+                          "under 50": sum(x < 50 for x in sc)}}
+    out = {**summary(docs), "pdf": sum(d.get("format") == "pdf" for d in docs),
+           "under_100": sorted((d["score"], d["displayName"]) for d in docs if d["score"] < 100)}
+    if run_titles is not None:
+        mine = set(run_titles)
+        run = [d for d in docs if d.get("format") == "html" and d["displayName"] in mine]
+        out["run_pages"] = summary(run)
+        out["run_under_100"] = sorted((d["score"], d["displayName"]) for d in run if d["score"] < 100)
+        out["other"] = summary([d for d in docs if d not in run])
+    return out
 
 
 def main() -> int:
@@ -487,9 +504,10 @@ def main() -> int:
     for f in ("DECISIONS.md", "REVIEW.md", "modules.yaml"):
         m.setdefault("files", {})[f] = (args.workspace / f).exists()
     if args.canvas:
-        m["canvas"] = canvas_state(args.workspace)
+        start = m["run"]["start"].replace("Z", "")[:16]
+        m["canvas"] = canvas_state(args.workspace, since=start)
     if args.panorama:
-        m["panorama"] = panorama(args.panorama)
+        m["panorama"] = panorama(args.panorama, (m.get("canvas") or {}).get("run_page_titles"))
     (args.run / "metrics.json").write_text(json.dumps(m, indent=1, default=str))
 
     p, q = m["process"], m["quality"]
@@ -511,7 +529,12 @@ def main() -> int:
         print(f"canvas: {c['pages']} pages ({len(c['published_pages'])} published), "
               f"{c['modules']} modules, {c['pdf_files']} PDFs, {c['unlocked_files']} unlocked files")
     if "panorama" in m:
-        print(f"panorama: mean {m['panorama']['mean']} over {m['panorama']['items']} items")
+        pa = m["panorama"]
+        print(f"panorama: mean {pa['mean']} over {pa['items']} items")
+        if "run_pages" in pa:
+            r, o = pa["run_pages"], pa["other"]
+            print(f"  the run's pages: mean {r['mean']}, {r['at_100']}/{r['items']} at 100; "
+                  f"everything else: mean {o['mean']} over {o['items']}")
     return 0
 
 
