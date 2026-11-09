@@ -16,6 +16,29 @@ safety, and (after a scan) the YuJa Panorama score.
 - `score.py <run-dir> --workspace ... --reference ... --reference-manuals ... [--canvas] [--panorama <dump>]`:
   writes `metrics.json`.
 - `plot.py <run-dir>` and `plot.py --compare <run-dir>...`: PNG plots.
+- `progress.py <run-dir>`: one-line live status (docs drafted and pushed,
+  elapsed time, cost).
+
+Each run starts from the same Canvas state:
+
+- `reset_course.py <course id> <cutoff> [--yes]`: empties the benchmark
+  course back to before the source import (folders stay). The instructor
+  then imports the source course again.
+- `snapshot_course.py <out.json>`: read-only record of the imported
+  course, to compare with an earlier run's starting point.
+
+For a local model on another machine:
+
+- `run_local.sh <workspace> <run-dir> <model> [effort] [port]`: same as
+  `run_claude.sh`, but Claude Code talks to a local llama-server, with an
+  empty config dir, no reads under CloudStorage, and `task_queue.md` added
+  to the prompt. Pushes go through a `push_queue.py` worker. Run it in tmux
+  on the model's machine.
+- `mirror_run.sh`: runs on the instructor's computer. Every 30 s it copies
+  the run's log and status files back, so `progress.py` works there.
+- `yuja_watch.py <workspace> <host>:<remote ws>`: runs where the Panorama
+  sign-in is. Every 10 minutes it copies the findings for pages the run
+  pushed into the remote `_notes/yuja/`.
 
 ## What is measured
 
