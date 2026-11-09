@@ -43,6 +43,19 @@ The rules an agent must follow are enforced in the Canvas client
 
 `tests/test_guard.py` checks each of these offline.
 
+## Benchmarks
+
+One-shot runs on the pilot course: the model gets one prompt and the
+toolkit, with no instructor in the loop, and is scored against the
+instructor-reviewed pilot output. Details and plots: `docs/benchmarks.md`.
+
+| Run | Cost | Active time | Converted | Source words kept | Panorama, run's pages |
+| --- | --- | --- | --- | --- | --- |
+| Sonnet 5.5, high | $67.00 | 2 h 34 min | 59 of 60 | 0.97 guides, 0.965 manuals | 95.0 mean, 251 of 271 at 100 |
+| Qwen 3.8 27B, local | $0 | running | | | |
+
+![Panorama scores after the Sonnet run](docs/img/bench/sonnet55-high-panorama.png)
+
 ## Quick start
 
 Needs [uv](https://docs.astral.sh/uv/), [Quarto](https://quarto.org), a TeX
@@ -84,7 +97,8 @@ scripts/         the tools (run from inside a course workspace)
 quarto/          Quarto filters: tikz.lua/tikz.py (figures), library-proxy.lua
 templates/       files copied into a new workspace, and a guide skeleton
 examples/        a finished example guide
-docs/            the pipeline, Panorama playbook, Canvas HTML notes, local models
+docs/            the pipeline, Panorama playbook, Canvas HTML notes, local models, benchmarks
+bench/           one-shot benchmark harness: prompt, runners, scoring, plots
 tests/           offline tests: tests/run.sh
 ```
 
