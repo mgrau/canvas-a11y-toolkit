@@ -43,6 +43,26 @@ def label(m: dict) -> str:
     return f"{r['model']} ({r.get('effort', '')})"
 
 
+def markers(m: dict, ax, label_them: bool = False) -> None:
+    """Dashed lines where a segment ended (a usage-limit stop) and where the
+    toolkit changed mid-run."""
+    t = 0.0
+    segs = m["process"].get("segments") or []
+    for seg in segs[:-1]:
+        t += seg["active_s"]
+        ax.axvline(t / 3600, color=INK2, linestyle="--", linewidth=1)
+        if label_them:
+            ax.annotate("usage limit: paused, resumed", (t / 3600, 0.5), xycoords=("data", "axes fraction"),
+                        xytext=(3, 0), textcoords="offset points", va="center", fontsize=8, color=INK2)
+    for ch in m.get("toolkit_changes") or []:
+        if ch.get("t_active") is not None:
+            x = ch["t_active"] / 3600
+            ax.axvline(x, color=SERIES[3], linestyle=":", linewidth=1.5)
+            if label_them:
+                ax.annotate("toolkit fix", (x, 0.5), xycoords=("data", "axes fraction"),
+                            xytext=(3, 0), textcoords="offset points", va="center", fontsize=8, color=INK2)
+
+
 def progress(m: dict, out: Path) -> None:
     """Cumulative cost and output tokens against wall-clock hours: two
     panels, one measure each (no second y-axis)."""
@@ -50,23 +70,34 @@ def progress(m: dict, out: Path) -> None:
     if not tl:
         return
     hours = [x["t"] / 3600 for x in tl]
-    cost, out_tok, read_tok = [], [], []
-    c = o = r = 0.0
-    for x in tl:
-        c += x["cost"]; o += x["out"]; r += x["read"]
-        cost.append(c); out_tok.append(o / 1e3); read_tok.append(r / 1e6)
+
+    def cum(key, scale, who=None):
+        v, out = 0.0, []
+        for x in tl:
+            if who is None or x["sub"] == who:
+                v += x[key]
+            out.append(v / scale)
+        return out
+
     fig, axes = plt.subplots(3, 1, figsize=(8, 7.5), sharex=True)
-    for ax, y, title, unit in [
-        (axes[0], cost, "Cumulative cost", "US dollars (API list price)"),
-        (axes[1], out_tok, "Cumulative output tokens", "thousands"),
-        (axes[2], read_tok, "Cumulative cache-read tokens", "millions"),
-    ]:
-        ax.plot(hours, y, color=SERIES[0])
+    for i, (ax, key, scale, title, unit) in enumerate([
+        (axes[0], "cost", 1, "Cumulative cost", "US dollars (API list price)"),
+        (axes[1], "out", 1e3, "Cumulative output tokens", "thousands"),
+        (axes[2], "read", 1e6, "Cumulative cache-read tokens", "millions"),
+    ]):
+        for j, (who, name) in enumerate([(None, "total"), (True, "subagents"), (False, "main agent")]):
+            y = cum(key, scale, who)
+            ax.plot(hours, y, color=SERIES[j], linewidth=2 if who is None else 1.5,
+                    label=name if i == 0 else None)
+            if who is not True:  # subagents run close to the total: label total and main only
+                ax.annotate(f"{y[-1]:,.1f}" if y[-1] < 100 else f"{y[-1]:,.0f}", (hours[-1], y[-1]),
+                            textcoords="offset points", xytext=(4, 0), va="center", color=INK,
+                            fontsize=8)
         ax.set_title(title)
         ax.set_ylabel(unit)
-        ax.annotate(f"{y[-1]:,.1f}" if y[-1] < 100 else f"{y[-1]:,.0f}", (hours[-1], y[-1]),
-                    textcoords="offset points", xytext=(4, 0), va="center", color=INK)
-    axes[-1].set_xlabel("hours since start")
+        markers(m, ax, label_them=(i == 0))
+    axes[0].legend(loc="upper left", frameon=False, fontsize=8, bbox_to_anchor=(0, 0.85))
+    axes[-1].set_xlabel("active hours since start (the pause for the usage limit cut out)")
     fig.suptitle(f"Progress — {label(m)}", x=0.01, ha="left", fontweight="bold")
     fig.tight_layout()
     fig.savefig(out / "progress.png", dpi=150)
@@ -76,7 +107,7 @@ def progress(m: dict, out: Path) -> None:
 def kind_of(t: dict) -> str:
     c = t["cmd"]
     if t["name"] == "Bash":
-        if "canvas.py" in c and "push" in c:
+        if ("canvas.py" in c and "push" in c) or ("pdf2qmd.py" in c and "--push" in c):
             return "push to Canvas"
         if "modules.py" in c:
             return "build modules"
@@ -119,7 +150,8 @@ def activity(m: dict, out: Path) -> None:
         ax.text(1.005, i, f"{len(ts)}", transform=ax.get_yaxis_transform(), va="center", color=INK2)
     ax.set_yticks(range(len(present)), present)
     ax.invert_yaxis()
-    ax.set_xlabel("hours since start")
+    markers(m, ax)
+    ax.set_xlabel("active hours since start")
     ax.set_title(f"Activity: one dot per tool call, circled = error\n{label(m)}")
     ax.grid(axis="y", visible=False)
     fig.tight_layout()
@@ -128,34 +160,49 @@ def activity(m: dict, out: Path) -> None:
 
 
 def accuracy(m: dict, out: Path) -> None:
-    """Per-document recall of the reference text, colored by gate result."""
+    """Per document: share of the source PDF's words kept (bars, colored by
+    the gate), and share of the reference conversion's words present (dots).
+    The reference guides were expanded during review, so a guide's dot sits
+    well left of its bar by design."""
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
     docs = m["quality"]["docs"]
     for kind in ("guide", "manual"):
         ds = sorted((d for d in docs if d["kind"] == kind),
-                    key=lambda d: (d.get("recall", -1)), reverse=True)
+                    key=lambda d: (d.get("source_recall") or d.get("recall") or -1), reverse=True)
         if not ds:
             continue
-        fig, ax = plt.subplots(figsize=(8, 0.26 * len(ds) + 1.4))
-        y = range(len(ds))
-        vals = [d.get("recall", 0) if d["done"] else 0 for d in ds]
+        fig, ax = plt.subplots(figsize=(9, 0.26 * len(ds) + 1.6))
+        y = list(range(len(ds)))
+        bars = [(d.get("source_recall") or 0) if d["done"] else 0 for d in ds]
         cols = [NEUTRAL if not d["done"] else (GOOD if d.get("gate") else CRITICAL) for d in ds]
-        ax.barh(list(y), vals, color=cols, height=0.7)
+        ax.barh(y, bars, color=cols, height=0.7)
+        dots = [(i, d["recall"]) for i, d in enumerate(ds) if d["done"]]
+        ax.scatter([r for _, r in dots], [i for i, _ in dots], s=22, color=INK, zorder=3,
+                   edgecolors=SURFACE, linewidths=1)
         for i, d in enumerate(ds):
-            txt = "not done" if not d["done"] else f"{d['recall']:.2f}"
-            ax.text(vals[i] + 0.01, i, txt, va="center", fontsize=8, color=INK2)
-        ax.set_yticks(list(y), [d["ref"] for d in ds], fontsize=8)
+            if not d["done"]:
+                txt = "not converted"
+            elif d.get("source_recall") is None:
+                txt = f"scanned: no text layer · ref {d['recall']:.2f}"
+            else:
+                txt = f"{d['source_recall']:.2f} · ref {d['recall']:.2f}"
+            ax.text(1.01, i, txt, va="center", fontsize=7, color=INK2,
+                    transform=ax.get_yaxis_transform())
+        ax.set_yticks(y, [d["ref"] for d in ds], fontsize=8)
         ax.invert_yaxis()
-        ax.set_xlim(0, 1.1)
-        ax.set_xlabel("recall: share of the reference conversion's words present")
-        from matplotlib.patches import Patch
-        ax.legend(handles=[Patch(color=GOOD, label="passes the gate"),
-                           Patch(color=CRITICAL, label="fails the gate"),
-                           Patch(color=NEUTRAL, label="not converted")],
-                  loc="lower right", frameon=False, fontsize=8)
-        ax.set_title(f"{kind.title()}s vs reference\n{label(m)}")
+        ax.set_xlim(0, 1.0)
+        ax.set_xlabel("share of words kept")
+        ax.legend(handles=[Patch(color=GOOD, label="source PDF's words kept; passes the gate"),
+                           Patch(color=CRITICAL, label="... fails the gate"),
+                           Line2D([], [], marker="o", linestyle="", color=INK,
+                                  label="reference conversion's words present")],
+                  loc="upper left", bbox_to_anchor=(0, -0.9 / (0.26 * len(ds) + 1.6) - 0.02),
+                  ncol=3, frameon=False, fontsize=7)
+        ax.set_title(f"{kind.title()}s: words kept\n{label(m)}")
         ax.grid(axis="y", visible=False)
         fig.tight_layout()
-        fig.savefig(out / f"accuracy-{kind}s.png", dpi=150)
+        fig.savefig(out / f"accuracy-{kind}s.png", dpi=150, bbox_inches="tight")
         plt.close(fig)
 
 
@@ -173,8 +220,8 @@ def compare(ms: list[dict], out: Path) -> None:
         ("Manuals done (of 48)", lambda m: get(m, ["quality", "manuals", "done"])),
         ("Gate passes (of 60)", lambda m: get(m, ["quality", "guides", "gate_pass"])
          + get(m, ["quality", "manuals", "gate_pass"])),
-        ("Mean recall, manuals", lambda m: get(m, ["quality", "manuals", "mean_recall"])),
-        ("Mean recall, guides", lambda m: get(m, ["quality", "guides", "mean_recall"])),
+        ("Source words kept, manuals", lambda m: get(m, ["quality", "manuals", "mean_source_recall"])),
+        ("Source words kept, guides", lambda m: get(m, ["quality", "guides", "mean_source_recall"])),
         ("Panorama mean score", lambda m: get(m, ["panorama", "mean"])),
     ]
     names = [label(m) for m in ms]
