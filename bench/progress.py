@@ -29,7 +29,7 @@ PRICES = {  # $ per million tokens, as in score.py
 # Share of the bar each stage is worth.
 WEIGHTS = {"triage": 5, "drafts": 50, "pushed": 30, "modules": 5, "checks": 5, "review": 5}
 PUSHED = re.compile(r"^(?:Create|Update) page '(.+?)' \(", re.M)
-STALL_S = 600
+STALL_S = 600  # x3 for a local model, which can think for many minutes between events
 
 
 def ts(s: str) -> float:
@@ -209,6 +209,10 @@ def progress(run: Path) -> dict:
         est, o = cost({k: m for k, m in ev["msgs"].items() if m["seg"] == i})
         usd = r["total_cost_usd"] if r and "total_cost_usd" in r else usd + est
         out_tok += o
+    # A local model (run_local.sh) costs nothing per token; Claude Code
+    # still prices its tokens at a Claude rate.
+    if info.get("server"):
+        usd = 0.0
     last = max((t for t in ev["tools"].values() if t["t"]), key=lambda t: t["t"], default=None)
     lim = ev["limit"] or {}
     windows = lim.get("unifiedWindows") or {}
@@ -221,7 +225,7 @@ def progress(run: Path) -> dict:
         state = "rate limited"
     elif last and last["name"] == "ScheduleWakeup" and idle is not None and idle > 60:
         state = "waiting: wakeup set"
-    elif idle is not None and idle > STALL_S:
+    elif idle is not None and idle > STALL_S * (3 if info.get("server") else 1):
         state = "stalled"
     else:
         state = "running"

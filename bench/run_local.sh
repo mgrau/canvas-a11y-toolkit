@@ -1,5 +1,5 @@
 #!/bin/zsh
-# bench/run_local.sh <workspace> <run-dir> <model-name> [port]
+# bench/run_local.sh <workspace> <run-dir> <model-name> [effort] [port]
 #
 # One-shot benchmark run with Claude Code driving a local llama-server (its
 # Anthropic-style /v1/messages endpoint) instead of Anthropic's API, so only
@@ -7,14 +7,16 @@
 # event log. Differences, recorded in run.json:
 #   - pushes go through push_queue.py; a worker runs alongside the agent
 #     and drains the queue after it stops (bench/task_queue.md);
-#   - Panorama findings are copied into _notes/yuja/ by bench/yuja_watch.sh
+#   - Panorama findings are copied into _notes/yuja/ by bench/yuja_watch.py
 #     running on the instructor's computer;
 #   - Claude Code gets an empty config dir (no user skills, plugins or
 #     memory) and may not read anything under ~/Library/CloudStorage.
 # Run it on the model's machine, in tmux. The server's API key is read from
 # ~/local-ai/etc/llm-api-key.txt.
 set -u
-ws=${1:A}; out=${2:A}; model=$3; port=${4:-8091}
+# effort only labels the run: a local model's thinking level is set on the
+# server (Qwen: chat-template reasoning_effort, default xhigh).
+ws=${1:A}; out=${2:A}; model=$3; effort=${4:-default}; port=${5:-8091}
 TOOLKIT=${0:A:h:h}
 mkdir -p $out/claude-config
 { sed '/^## Rules/,$d' $TOOLKIT/bench/task.md; cat $TOOLKIT/bench/task_queue.md
@@ -33,7 +35,7 @@ export CLAUDE_CONFIG_DIR=$out/claude-config
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 DISABLE_TELEMETRY=1
 export PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 props=$(curl -s -H "Authorization: Bearer $ANTHROPIC_API_KEY" http://127.0.0.1:$port/props)
-print -r -- "{\"model\": \"$model\", \"harness\": \"claude-code $(claude --version | cut -d' ' -f1)\", \"server\": \"llama-server on $(hostname -s):$port\", \"toolkit_commit\": \"$(git -C $TOOLKIT rev-parse --short HEAD)\", \"pushes\": \"push_queue.py worker\", \"panorama\": \"yuja_watch.sh into _notes/yuja/\", \"workspace\": \"$ws\", \"start\": \"$(date -u +%FT%TZ)\"}" > $out/run.json
+print -r -- "{\"model\": \"$model\", \"effort\": \"$effort\", \"harness\": \"claude-code $(claude --version | cut -d' ' -f1)\", \"server\": \"llama-server on $(hostname -s):$port\", \"toolkit_commit\": \"$(git -C $TOOLKIT rev-parse --short HEAD)\", \"pushes\": \"push_queue.py worker\", \"panorama\": \"yuja_watch.sh into _notes/yuja/\", \"workspace\": \"$ws\", \"start\": \"$(date -u +%FT%TZ)\"}" > $out/run.json
 print -r -- "$props" > $out/server_props.json
 cd $ws || exit 1
 git add -A && git commit -qm "bench: start ($model)" --allow-empty
