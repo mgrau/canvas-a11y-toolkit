@@ -10,6 +10,10 @@
 # take (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0). Without it, a headless run
 # stops them 10 minutes after the main agent's last turn: the Qwen run of
 # 2026-11-09 ended that way, with 10 subagents mid-conversion.
+#
+# Requests may also wait up to an hour (API_TIMEOUT_MS): with many
+# subagents sharing a few server slots, a request queues behind the others,
+# and the default 10-minute timeout killed 12 subagents in that run.
 set -u
 out=${1:A}; port=${3:-8091}
 TOOLKIT=${0:A:h:h}
@@ -18,14 +22,14 @@ ws=$(read_json workspace); model=$(read_json model)
 n=2; while [[ -e $out/events.$n.jsonl ]]; do n=$((n+1)); done
 last=$out/events.jsonl; [[ $n -gt 2 ]] && last=$out/events.$((n-1)).jsonl
 sid=${2:-$(grep '"type":"result"' $last | tail -1 | python3 -c "import json,sys; print(json.load(sys.stdin)['session_id'])")}
-msg="You were stopped partway through: your background subagents were stopped when your last turn ended. Continue the task from where you left off and finish everything it asks for."
+msg=${RESUME_MSG:-"You were stopped partway through, and your background subagents with you. Continue the task from where you left off and finish everything it asks for."}
 export ANTHROPIC_BASE_URL=http://127.0.0.1:$port
 export ANTHROPIC_API_KEY=$(cat ~/local-ai/etc/llm-api-key.txt)
 export ANTHROPIC_MODEL=$model ANTHROPIC_SMALL_FAST_MODEL=$model CLAUDE_CODE_SUBAGENT_MODEL=$model
 export ANTHROPIC_DEFAULT_OPUS_MODEL=$model ANTHROPIC_DEFAULT_SONNET_MODEL=$model ANTHROPIC_DEFAULT_HAIKU_MODEL=$model
 export CLAUDE_CONFIG_DIR=$out/claude-config
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 DISABLE_TELEMETRY=1
-export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 API_TIMEOUT_MS=3600000
 export PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 print -r -- "{\"segment\": $n, \"session\": \"$sid\", \"start\": \"$(date -u +%FT%TZ)\", \"prompt\": \"$msg\", \"bg_wait\": \"unlimited\"}" > $out/segment.$n.json
 rm -f $out/exit_code $out/end $out/queue_drained $out/end_commit

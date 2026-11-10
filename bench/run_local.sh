@@ -35,7 +35,8 @@ export CLAUDE_CONFIG_DIR=$out/claude-config
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 DISABLE_TELEMETRY=1
 # Wait for background subagents however long they take; by default a
 # headless run stops them 10 minutes after the main agent's last turn.
-export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0
+# Let a request wait up to an hour: subagents queue for the server's slots.
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 API_TIMEOUT_MS=3600000
 export PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 props=$(curl -s -H "Authorization: Bearer $ANTHROPIC_API_KEY" http://127.0.0.1:$port/props)
 print -r -- "{\"model\": \"$model\", \"effort\": \"$effort\", \"harness\": \"claude-code $(claude --version | cut -d' ' -f1)\", \"server\": \"llama-server on $(hostname -s):$port\", \"toolkit_commit\": \"$(git -C $TOOLKIT rev-parse --short HEAD)\", \"pushes\": \"push_queue.py worker\", \"panorama\": \"yuja_watch.sh into _notes/yuja/\", \"workspace\": \"$ws\", \"start\": \"$(date -u +%FT%TZ)\"}" > $out/run.json
